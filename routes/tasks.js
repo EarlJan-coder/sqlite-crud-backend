@@ -3,6 +3,13 @@ import db from '../tasks-db.js'
 
 const router = express.Router()
 
+const normalizeDone = (value) => {
+    if(value === undefined) return undefined
+    if(value === true || value === 1 || value === "1") return 1
+    if(value === false || value === 0 || value === "0") return 0
+    return null
+}
+
 // Return all tasks or Filter task by **DONE** status and/or search by title
 router.get("/", (req, res) => {
     const rows = db.prepare('SELECT * FROM tasks').all()
@@ -24,15 +31,26 @@ router.get("/:id", (req,res) => {
 
 // Create task
 router.post("/new", (req, res) => {
-    const task = req.body
+    const { title, done } = req.body
 
-    if (!task.title) {
+    if (typeof title !== "string" || !title.trim()) {
         return res.status(400).json({ error: "Task title can not be empty" })
     }
 
-    tasks.push({ id:tasks.length + 1, ...task, done: false })
+    const doneValue = normalizeDone(done)
+    if (done !== undefined && doneValue === null) {
+        return res.status(400).json({ error: "done must be true/false or 0/1" })
+    }
 
-    res.status(201).json(`${task.title} has been added to the tasks`)
+    const result = db
+    .prepare("INSERT INTO tasks (title, done) VALUES (?, ?)")
+    .run(title.trim(), doneValue ?? 0)
+
+    const newTask = db
+    .prepare("SELECT * FROM tasks WHERE id = ?")
+    .get(result.lastInsertRowid)
+
+    res.status(201).json(newTask)
 })
 
 // Delete task
