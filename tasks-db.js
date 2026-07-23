@@ -34,3 +34,6 @@ if (row.count === 0) {
 }else{
     console.log(`Table already contains ${row.count} tasks. Skipping seed step`)
 }
+
+
+export default db
