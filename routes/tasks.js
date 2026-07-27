@@ -12,6 +12,18 @@ const normalizeDone = (value) => {
 
 // Return all tasks or Filter task by **DONE** status and/or search by title
 router.get("/", (req, res) => {
+    const { done } = req.query
+
+    if (done === "true") {
+        const rows = db.prepare("SELECT * FROM tasks WHERE done = 1").all()
+        return res.json(rows)
+    }
+
+    if (done === "false") {
+        const rows = db.prepare("SELECT * FROM tasks WHERE done = 0").all()
+        return res.json(rows)
+    }
+
     const rows = db.prepare('SELECT * FROM tasks').all()
     res.json(rows)
 })
@@ -57,13 +69,11 @@ router.post("/new", (req, res) => {
 router.delete("/delete/:id", (req, res) => {
     const { id } = req.params
 
-    const taskExists = tasks.some((task) => task.id === Number(id))
+    const result = db.prepare("DELETE FROM tasks WHERE id = ?").run(id)
 
-    if (!taskExists) {
-        return res.status(404).send("Task not found")
+    if (result.changes===0) {
+        return res.status(404).json({ error: "Task not found" })
     }
-
-    tasks = tasks.filter((task) => task.id !== Number(id))
 
     res.status(204).end()
 })
