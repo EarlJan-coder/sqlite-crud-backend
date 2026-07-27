@@ -12,19 +12,23 @@ const normalizeDone = (value) => {
 
 // Return all tasks or Filter task by **DONE** status and/or search by title
 router.get("/", (req, res) => {
-    const { done } = req.query
+    const { done, search } = req.query
+
+    let query = "SELECT * FROM tasks WHERE 1=1"
+    const params = []
 
     if (done === "true") {
-        const rows = db.prepare("SELECT * FROM tasks WHERE done = 1").all()
-        return res.json(rows)
+        query += " AND done = 1"
+    } else if(done === "false"){
+        query += " AND done = 0"
     }
 
-    if (done === "false") {
-        const rows = db.prepare("SELECT * FROM tasks WHERE done = 0").all()
-        return res.json(rows)
+    if (search) {
+        query += " AND title LIKE ?"
+        params.push(`%${search}%`)
     }
 
-    const rows = db.prepare('SELECT * FROM tasks').all()
+    const rows = db.prepare(query).all(...params)
     res.json(rows)
 })
 
