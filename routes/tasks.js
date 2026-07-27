@@ -83,16 +83,29 @@ router.put("/update/:id", (req, res) => {
     const { id } = req.params
     const { title, done } = req.body
 
-    const task = tasks.find((task) => task.id === Number(id))
-
+    const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id)
     if (!task) {
-        return res.status(404).send("Task not found")
+        return res.status(404).json({ error: "Task not found" })
+    }
+    if (title === undefined && done === undefined) {
+        return res.status(400).json({ error: "Nothing to update" })
+    }
+    if (title !== undefined && (typeof title !== "string" || !title.trim())) {
+        return res.status(400).json({ error: "Task title can not be empty" })
     }
 
-    if(title !==undefined) task.title = title
-    if(done !==undefined) task.done = done
+    const doneValue = normalizeDone(done)
+    if (done !== undefined && doneValue === null) {
+        return res.status(400).json({ error: "done must be true/false or 0/1" })
+    }
 
-    res.send(`Task with id: ${id} has been updated`)
+    const nextTitle = title !== undefined ? title.trim() : task.title
+    const nextDone = done !== undefined ? doneValue : task.done
+
+    db.prepare("UPDATE tasks SET title = ?, done = ?, WHERE id = ?").run(nextTitle, nextDone, id)
+
+    const updatedTask = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id)
+    res.json(updatedTask)
 })
 
 
