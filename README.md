@@ -1,75 +1,55 @@
 # Task API
 
-A simple RESTful API for managing tasks built with Express.js. This API supports full **CRUD** operations (Create, Read, Update, Delete) and includes filtering capabilities.
+A small Express and SQLite task API with CRUD routes, filtering, and Swagger docs.
 
-## What is CRUD?
+## Overview
 
-- **C**reate - Add new tasks
-- **R**ead - View all tasks or specific tasks
-- **U**pdate - Modify existing tasks
-- **D**elete - Remove tasks
+The app uses a local SQLite database file called `tasks.db`. On first run it creates the `tasks` table and seeds three example tasks if the table is empty.
 
-## Prerequisites
+## Requirements
 
-Before you begin, make sure you have installed:
+- Node.js 18 or higher
+- npm
 
-- [Node.js](https://nodejs.org/) (version 18 or higher)
-- npm (comes with Node.js)
-
-Check your versions by running:
-
-```bash
-node --version
-npm --version
-```
-
-## Installation
-
-1. Clone or download this project
-
-2. Open a terminal in the project folder
-
-3. Install dependencies:
+## Install
 
 ```bash
 npm install
 ```
 
-## Running the Server
+## Run
 
-Start the development server:
+Start the development server with:
 
 ```bash
 npm run dev
 ```
 
-You should see:
+The server listens on port `3000`.
 
-```
-Server running on port: http://localhost:3000
-```
+## Endpoints
 
-The server will automatically restart when you make changes (thanks to nodemon).
+Base URL: `http://localhost:3000`
 
-## API Endpoints
+### `GET /`
 
-### Base URL
+Returns basic app metadata.
 
-```
-http://localhost:3000
-```
+Response:
 
----
-
-### Health Check
-
-Check if the server is running.
-
-```
-GET /health
+```json
+{
+  "name": "Task API",
+  "version": "1.0",
+  "endpoints": ["/tasks"]
+}
 ```
 
-**Response:**
+### `GET /health`
+
+Health check endpoint.
+
+Response:
 
 ```json
 {
@@ -77,118 +57,61 @@ GET /health
 }
 ```
 
----
+### `GET /tasks`
 
-### List All Tasks
+Returns all tasks.
 
-Get all tasks in the system.
+Query parameters:
 
+- `done=true` to return completed tasks
+- `done=false` to return incomplete tasks
+- `search=<text>` to search task titles with `LIKE`
+- Both filters can be combined
+
+Examples:
+
+```bash
+curl http://localhost:3000/tasks
+curl http://localhost:3000/tasks?done=true
+curl http://localhost:3000/tasks?search=code
+curl http://localhost:3000/tasks?done=false&search=ea
 ```
-GET /tasks
-```
 
-**Response:**
+Response:
 
 ```json
 [
   {
     "id": 1,
-    "title": "Code",
-    "done": true
-  },
-  {
-    "id": 2,
-    "title": "Study",
-    "done": true
-  },
-  {
-    "id": 3,
-    "title": "Eat",
-    "done": false
+    "title": "Buy groceries",
+    "done": 0
   }
 ]
 ```
 
----
+If no rows match, the route returns an empty array.
 
-### Filter Tasks
+### `GET /tasks/:id`
 
-Filter tasks by completion status, search by title, or both.
+Returns a single task by ID.
 
-```
-GET /tasks?done=true
-GET /tasks?search=code
-GET /tasks?done=false&search=eat
-```
-
-**Query Parameters:**
-
-| Parameter | Type | Description | Example Values |
-|-----------|------|-------------|----------------|
-| `done` | string | Filter by completion status | `true`, `false` |
-| `search` | string | Search tasks by title (case-insensitive) | `code`, `study` |
-
-**Examples:**
-
-1. Get only completed tasks:
-
-```bash
-curl http://localhost:3000/tasks?done=true
-```
-
-2. Get only incomplete tasks:
-
-```bash
-curl http://localhost:3000/tasks?done=false
-```
-
-3. Search for tasks containing "code":
-
-```bash
-curl http://localhost:3000/tasks?search=code
-```
-
-4. Combine filters - incomplete tasks containing "ea":
-
-```bash
-curl http://localhost:3000/tasks?done=false&search=ea
-```
-
-**Response when no tasks match:**
-
-```json
-{
-  "error": "No tasks found matching the criteria"
-}
-```
-
----
-
-### Get Single Task
-
-Get a specific task by its ID.
-
-```
-GET /tasks/:id
-```
-
-**Example:**
+Example:
 
 ```bash
 curl http://localhost:3000/tasks/1
 ```
 
-**Response:**
+Successful response:
 
 ```json
 {
   "id": 1,
-  "title": "Code",
-  "done": true
+  "title": "Buy groceries",
+  "done": 0
 }
 ```
 
-**Error if task not found:**
+If the task does not exist, the API returns:
 
 ```json
 {
@@ -196,39 +119,40 @@ curl http://localhost:3000/tasks/1
 }
 ```
 
----
+### `POST /tasks/new`
 
-### Create New Task
+Creates a new task.
 
-Add a new task to the list.
-
-```
-POST /tasks/new
-```
-
-**Request Body:**
+Request body:
 
 ```json
 {
-  "title": "Buy groceries"
+  "title": "Buy groceries",
+  "done": false
 }
 ```
 
-> Note: The `done` field is automatically set to `false` for new tasks.
+The `title` field is required. The `done` field is optional and accepts `true`, `false`, `1`, or `0`. When omitted, `done` defaults to `0`.
 
-**Example:**
+Example:
 
 ```bash
-curl -X POST http://localhost:3000/tasks/new -H "Content-Type: application/json" -d '{"title": "Buy groceries"}'
+curl -X POST http://localhost:3000/tasks/new -H "Content-Type: application/json" -d '{"title":"Buy groceries"}'
 ```
 
-**Response (201 Created):**
+Success response is the created task object with status `201`.
 
-```
-Buy groceries has been added to the tasks
+Example response:
+
+```json
+{
+  "id": 4,
+  "title": "Buy groceries",
+  "done": 0
+}
 ```
 
-**Error if title is missing:**
+Validation errors:
 
 ```json
 {
@@ -236,17 +160,17 @@ Buy groceries has been added to the tasks
 }
 ```
 
----
-
-### Update Task
-
-Update an existing task's title or completion status.
-
-```
-PUT /tasks/update/:id
+```json
+{
+  "error": "done must be true/false or 0/1"
+}
 ```
 
-**Request Body (include only fields you want to update):**
+### `PUT /tasks/update/:id`
+
+Updates an existing task.
+
+Request body can include `title`, `done`, or both:
 
 ```json
 {
@@ -255,101 +179,84 @@ PUT /tasks/update/:id
 }
 ```
 
-**Examples:**
-
-1. Update only the title:
+Examples:
 
 ```bash
-curl -X PUT http://localhost:3000/tasks/update/1 -H "Content-Type: application/json" -d '{"title": "New title"}'
+curl -X PUT http://localhost:3000/tasks/update/1 -H "Content-Type: application/json" -d '{"title":"New title"}'
+curl -X PUT http://localhost:3000/tasks/update/1 -H "Content-Type: application/json" -d '{"done":true}'
+curl -X PUT http://localhost:3000/tasks/update/1 -H "Content-Type: application/json" -d '{"title":"Done!","done":true}'
 ```
 
-2. Mark task as complete:
+Validation and not-found responses:
 
-```bash
-curl -X PUT http://localhost:3000/tasks/update/1 -H "Content-Type: application/json" -d '{"done": true}'
+```json
+{
+  "error": "Task not found"
+}
 ```
 
-3. Update both title and status:
-
-```bash
-curl -X PUT http://localhost:3000/tasks/update/1 -H "Content-Type: application/json" -d '{"title": "Done!", "done": true}'
+```json
+{
+  "error": "Nothing to update"
+}
 ```
 
-**Response:**
-
-```
-Task with id: 1 has been updated
-```
-
-**Error if task not found:**
-
-```
-Task not found
+```json
+{
+  "error": "Task title can not be empty"
+}
 ```
 
----
-
-### Delete Task
-
-Remove a task from the system.
-
-```
-DELETE /tasks/delete/:id
+```json
+{
+  "error": "done must be true/false or 0/1"
+}
 ```
 
-**Example:**
+Successful response is the updated task object.
+
+### `DELETE /tasks/delete/:id`
+
+Deletes a task by ID.
+
+Example:
 
 ```bash
 curl -X DELETE http://localhost:3000/tasks/delete/1
 ```
 
-**Response (204 No Content):**
+Success returns status `204` with no response body.
 
-No response body on success.
+If the task does not exist, the API returns:
 
-**Error if task not found:**
-
+```json
+{
+  "error": "Task not found"
+}
 ```
-Task not found
-```
 
----
-
-## Swagger Documentation
+## Swagger Docs
 
 Interactive API documentation is available at:
 
-```
+```bash
 http://localhost:3000/docs
 ```
-
-Open this URL in your browser to explore and test the API visually.
 
 ## Quick Reference
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| --- | --- | --- |
+| GET | / | App metadata |
 | GET | /health | Health check |
-| GET | /tasks | List all tasks |
-| GET | /tasks?done=true | Get completed tasks |
-| GET | /tasks?done=false | Get incomplete tasks |
-| GET | /tasks?search=text | Search tasks by title |
-| GET | /tasks/:id | Get task by ID |
-| POST | /tasks/new | Create new task |
-| PUT | /tasks/update/:id | Update task |
-| DELETE | /tasks/delete/:id | Delete task |
+| GET | /tasks | List or filter tasks |
+| GET | /tasks/:id | Get a task by ID |
+| POST | /tasks/new | Create a task |
+| PUT | /tasks/update/:id | Update a task |
+| DELETE | /tasks/delete/:id | Delete a task |
 
-## Troubleshooting
+## Notes
 
-**Port already in use:**
-
-If you see `EADDRINUSE`, another process is using port 3000. Either stop that process or change the port in `server.js`.
-
-**Cannot find module:**
-
-Run `npm install` again to reinstall dependencies.
-
-**Server not restarting:**
-
-Make sure you ran `npm run dev` (not just `node server.js`) to use nodemon for auto-restart.
-# sqlite-crud-backend
+- Task rows store `done` as `0` or `1` in SQLite.
+- The database is created automatically if it does not exist.
+- Example seed data is only added when the table is empty.
